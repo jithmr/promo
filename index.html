@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Scanner with Excel Export</title>
+<title>QR & Barcode Scanner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://unpkg.com/html5-qrcode"></script>
@@ -32,13 +32,30 @@ h2 {
   margin-top: 0;
 }
 
+button {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 8px;
+  font-size: 15px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: white;
+}
+
+.qr-btn { background: #2563eb; }
+.barcode-btn { background: #7c3aed; }
+.download-btn { background: #16a34a; }
+
+button:hover { opacity: 0.9; }
+
 #reader {
   width: 100%;
   margin-bottom: 15px;
 }
 
 .results {
-  max-height: 300px;
+  max-height: 250px;
   overflow-y: auto;
   margin-bottom: 10px;
 }
@@ -56,7 +73,7 @@ h2 {
 }
 
 .copy-btn {
-  background: #2563eb;
+  background: #1d4ed8;
   border: none;
   color: white;
   padding: 5px 10px;
@@ -64,31 +81,15 @@ h2 {
   cursor: pointer;
   font-size: 12px;
 }
-
-.copy-btn:hover {
-  background: #1d4ed8;
-}
-
-button.download-btn {
-  width: 100%;
-  padding: 12px;
-  font-size: 15px;
-  background: #16a34a;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-button.download-btn:hover {
-  background: #15803d;
-}
 </style>
 </head>
 
 <body>
 <div class="container">
   <h2>QR & Barcode Scanner</h2>
+
+  <button class="qr-btn" onclick="startQR()">Scan QR Code</button>
+  <button class="barcode-btn" onclick="startBarcode()">Scan Barcode</button>
 
   <div id="reader"></div>
 
@@ -102,23 +103,61 @@ button.download-btn:hover {
 <script>
 let html5QrCode;
 let scannedResults = [];
+let currentFormats = [];
+
 const resultsDiv = document.getElementById("results");
 
+function stopScanner() {
+  if (html5QrCode) {
+    html5QrCode.stop().catch(() => {});
+    html5QrCode.clear();
+  }
+}
+
+function startQR() {
+  currentFormats = ["qr_code"];
+  startScanner();
+}
+
+function startBarcode() {
+  currentFormats = [
+    "code_128",
+    "ean_13",
+    "ean_8",
+    "upc_a",
+    "upc_e"
+  ];
+  startScanner();
+}
+
 function startScanner() {
+  stopScanner();
+
   html5QrCode = new Html5Qrcode("reader");
 
   Html5Qrcode.getCameras().then(cameras => {
-    const cameraId = cameras[0].id;
+
+    // 🔥 Always choose back camera if available
+    let backCamera = cameras.find(c =>
+      c.label.toLowerCase().includes("back")
+    );
+
+    const cameraId = backCamera ? backCamera.id : cameras[0].id;
 
     html5QrCode.start(
       cameraId,
-      { fps: 10, qrbox: 250 },
+      {
+        fps: 10,
+        qrbox: 250,
+        formatsToSupport: currentFormats
+      },
       decodedText => {
         if (!scannedResults.includes(decodedText)) {
           addResult(decodedText);
         }
       }
     );
+
   }).catch(err => {
     alert("Camera not available");
   });
@@ -144,7 +183,6 @@ function addResult(text) {
 
   row.appendChild(textSpan);
   row.appendChild(copyBtn);
-
   resultsDiv.appendChild(row);
 }
 
@@ -161,8 +199,6 @@ function downloadExcel() {
 
   XLSX.writeFile(workbook, "scanned_results.xlsx");
 }
-
-startScanner();
 </script>
 
 </body>
