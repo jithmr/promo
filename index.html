@@ -2,243 +2,168 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Pro QR & Barcode Scanner</title>
+<title>Scanner with Excel Export</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
 body {
   font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
+  background: #f1f5f9;
   margin: 0;
-  height: 100vh;
+  padding: 20px;
   display: flex;
   justify-content: center;
-  align-items: center;
-  color: white;
 }
 
 .container {
-  background: #1e293b;
-  padding: 20px;
-  max-width: 420px;
+  background: #ffffff;
+  max-width: 500px;
   width: 100%;
-  border-radius: 16px;
-  text-align: center;
-  box-shadow: 0 0 25px rgba(0,0,0,0.5);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.1);
 }
 
 h2 {
+  text-align: center;
   margin-top: 0;
-}
-
-button {
-  width: 100%;
-  padding: 12px;
-  margin: 6px 0;
-  font-size: 15px;
-  border: none;
-  border-radius: 8px;
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-button:hover {
-  background: #1d4ed8;
-}
-
-.secondary {
-  background: #475569;
 }
 
 #reader {
   width: 100%;
-  margin-top: 12px;
-  position: relative;
+  margin-bottom: 15px;
 }
 
-.scan-frame {
-  border: 2px solid #00ffcc;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 250px;
-  height: 250px;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 15px #00ffcc;
-  animation: pulse 2s infinite;
-  pointer-events: none;
-}
-
-@keyframes pulse {
-  0% { box-shadow: 0 0 10px #00ffcc; }
-  50% { box-shadow: 0 0 25px #00ffcc; }
-  100% { box-shadow: 0 0 10px #00ffcc; }
-}
-
-#result {
-  margin-top: 10px;
-  word-break: break-word;
-}
-
-#history {
-  margin-top: 10px;
-  font-size: 13px;
-  max-height: 100px;
+.results {
+  max-height: 300px;
   overflow-y: auto;
-  text-align: left;
+  margin-bottom: 10px;
 }
-.history-item {
-  background: #334155;
-  padding: 6px;
-  margin-bottom: 4px;
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #e2e8f0;
+  padding: 8px;
+  margin-bottom: 6px;
   border-radius: 6px;
+  font-size: 14px;
+  word-break: break-all;
 }
-a {
-  color: #38bdf8;
+
+.copy-btn {
+  background: #2563eb;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.copy-btn:hover {
+  background: #1d4ed8;
+}
+
+button.download-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+  background: #16a34a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button.download-btn:hover {
+  background: #15803d;
 }
 </style>
 </head>
 
 <body>
 <div class="container">
-  <h2>Pro Code Scanner</h2>
+  <h2>QR & Barcode Scanner</h2>
 
-  <button onclick="startQR()">Scan QR Code</button>
-  <button onclick="startBarcode()">Scan Barcode</button>
-  <button class="secondary" onclick="switchCamera()">Switch Camera</button>
-  <button class="secondary" onclick="toggleTorch()">Toggle Flashlight</button>
-  <button class="secondary" onclick="pauseResume()">Pause / Resume</button>
-  <button class="secondary" onclick="copyResult()">Copy Result</button>
-  <button class="secondary" onclick="clearResult()">Clear</button>
+  <div id="reader"></div>
 
-  <div id="reader">
-    <div class="scan-frame"></div>
-  </div>
+  <div class="results" id="results"></div>
 
-  <div id="result">Idle</div>
-
-  <div id="history"></div>
+  <button class="download-btn" onclick="downloadExcel()">
+    Download Results as Excel
+  </button>
 </div>
 
 <script>
 let html5QrCode;
-let currentCameraId;
-let camerasList = [];
-let isPaused = false;
-let lastResult = "";
+let scannedResults = [];
+const resultsDiv = document.getElementById("results");
 
-const resultBox = document.getElementById("result");
-const historyBox = document.getElementById("history");
-
-function playBeep() {
-  const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-  audio.play();
-  if (navigator.vibrate) navigator.vibrate(200);
-}
-
-function saveToHistory(text) {
-  let history = JSON.parse(localStorage.getItem("scanHistory")) || [];
-  history.unshift(text);
-  history = history.slice(0, 10);
-  localStorage.setItem("scanHistory", JSON.stringify(history));
-  displayHistory();
-}
-
-function displayHistory() {
-  let history = JSON.parse(localStorage.getItem("scanHistory")) || [];
-  historyBox.innerHTML = "<b>Scan History:</b>";
-  history.forEach(item => {
-    historyBox.innerHTML += `<div class="history-item">${item}</div>`;
-  });
-}
-
-function makeClickable(text) {
-  const urlPattern = /(https?:\/\/[^\s]+)/g;
-  return text.replace(urlPattern, '<a href="$1" target="_blank">$1</a>');
-}
-
-function stopScanner() {
-  if (html5QrCode) {
-    html5QrCode.stop().catch(() => {});
-    html5QrCode = null;
-  }
-}
-
-function startQR() {
-  startScanner(["qr_code"]);
-}
-
-function startBarcode() {
-  startScanner(["code_128","ean_13","ean_8","upc_a","upc_e"]);
-}
-
-function startScanner(formats) {
-  stopScanner();
-  resultBox.textContent = "Scanning...";
+function startScanner() {
   html5QrCode = new Html5Qrcode("reader");
 
   Html5Qrcode.getCameras().then(cameras => {
-    camerasList = cameras;
-    currentCameraId = cameras.find(c => c.label.toLowerCase().includes("back"))?.id || cameras[0].id;
+    const cameraId = cameras[0].id;
 
     html5QrCode.start(
-      currentCameraId,
-      { fps: 10, qrbox: 250, formatsToSupport: formats },
+      cameraId,
+      { fps: 10, qrbox: 250 },
       decodedText => {
-        lastResult = decodedText;
-        resultBox.innerHTML = "Result: " + makeClickable(decodedText);
-        playBeep();
-        saveToHistory(decodedText);
-        stopScanner();
+        if (!scannedResults.includes(decodedText)) {
+          addResult(decodedText);
+        }
       }
     );
-  }).catch(() => {
-    resultBox.textContent = "Camera not available.";
+  }).catch(err => {
+    alert("Camera not available");
   });
 }
 
-function switchCamera() {
-  if (!camerasList.length) return;
-  const index = camerasList.findIndex(c => c.id === currentCameraId);
-  const nextIndex = (index + 1) % camerasList.length;
-  currentCameraId = camerasList[nextIndex].id;
-  startQR();
+function addResult(text) {
+  scannedResults.push(text);
+
+  const row = document.createElement("div");
+  row.className = "result-row";
+
+  const textSpan = document.createElement("span");
+  textSpan.textContent = text;
+
+  const copyBtn = document.createElement("button");
+  copyBtn.textContent = "Copy";
+  copyBtn.className = "copy-btn";
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(text);
+    copyBtn.textContent = "Copied!";
+    setTimeout(() => copyBtn.textContent = "Copy", 1000);
+  };
+
+  row.appendChild(textSpan);
+  row.appendChild(copyBtn);
+
+  resultsDiv.appendChild(row);
 }
 
-function toggleTorch() {
-  if (html5QrCode) {
-    html5QrCode.applyVideoConstraints({
-      advanced: [{ torch: true }]
-    }).catch(() => alert("Torch not supported"));
+function downloadExcel() {
+  if (scannedResults.length === 0) {
+    alert("No data to export");
+    return;
   }
+
+  const worksheetData = scannedResults.map(item => [item]);
+  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Scanned Results");
+
+  XLSX.writeFile(workbook, "scanned_results.xlsx");
 }
 
-function pauseResume() {
-  if (!html5QrCode) return;
-  if (isPaused) {
-    html5QrCode.resume();
-    isPaused = false;
-  } else {
-    html5QrCode.pause();
-    isPaused = true;
-  }
-}
-
-function copyResult() {
-  if (!lastResult) return;
-  navigator.clipboard.writeText(lastResult);
-  alert("Copied!");
-}
-
-function clearResult() {
-  resultBox.textContent = "Idle";
-}
-
-displayHistory();
+startScanner();
 </script>
+
 </body>
 </html>
