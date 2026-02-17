@@ -72,15 +72,31 @@ button:hover { opacity: 0.9; }
   word-break: break-all;
 }
 
-.copy-btn {
-  background: #1d4ed8;
+.result-row.duplicate {
+  background: #fecaca;   /* Light red */
+  color: #991b1b;        /* Dark red text */
+}
+
+.actions {
+  display: flex;
+  gap: 5px;
+}
+
+.copy-btn, .delete-btn {
   border: none;
   color: white;
-  padding: 5px 10px;
+  padding: 5px 8px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
 }
+
+.copy-btn { background: #1d4ed8; }
+.delete-btn { background: #dc2626; }
+
+.copy-btn:hover { opacity: 0.9; }
+.delete-btn:hover { opacity: 0.9; }
+
 </style>
 </head>
 
@@ -154,10 +170,7 @@ function startScanner() {
       decodedText => {
 
         const now = Date.now();
-
-        // 🔥 Prevent multiple triggers within 1.5 seconds
         if (now - lastScanTime < 1500) return;
-
         lastScanTime = now;
 
         addResult(decodedText);
@@ -171,13 +184,21 @@ function startScanner() {
 
 function addResult(text) {
 
+  const isDuplicate = scannedResults.includes(text);
   scannedResults.push(text);
 
   const row = document.createElement("div");
   row.className = "result-row";
 
+  if (isDuplicate) {
+    row.classList.add("duplicate");
+  }
+
   const textSpan = document.createElement("span");
   textSpan.textContent = text;
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
 
   const copyBtn = document.createElement("button");
   copyBtn.textContent = "Copy";
@@ -188,11 +209,21 @@ function addResult(text) {
     setTimeout(() => copyBtn.textContent = "Copy", 1000);
   };
 
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "Delete";
+  deleteBtn.className = "delete-btn";
+  deleteBtn.onclick = () => {
+    resultsDiv.removeChild(row);
+    scannedResults = scannedResults.filter(item => item !== text);
+  };
+
+  actions.appendChild(copyBtn);
+  actions.appendChild(deleteBtn);
+
   row.appendChild(textSpan);
-  row.appendChild(copyBtn);
+  row.appendChild(actions);
   resultsDiv.appendChild(row);
 
-  // Auto scroll to latest
   resultsDiv.scrollTop = resultsDiv.scrollHeight;
 }
 
