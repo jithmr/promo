@@ -104,6 +104,7 @@ button:hover { opacity: 0.9; }
 let html5QrCode;
 let scannedResults = [];
 let currentFormats = [];
+let lastScanTime = 0;
 
 const resultsDiv = document.getElementById("results");
 
@@ -137,7 +138,6 @@ function startScanner() {
 
   Html5Qrcode.getCameras().then(cameras => {
 
-    // 🔥 Always choose back camera if available
     let backCamera = cameras.find(c =>
       c.label.toLowerCase().includes("back")
     );
@@ -152,18 +152,25 @@ function startScanner() {
         formatsToSupport: currentFormats
       },
       decodedText => {
-        if (!scannedResults.includes(decodedText)) {
-          addResult(decodedText);
-        }
+
+        const now = Date.now();
+
+        // 🔥 Prevent multiple triggers within 1.5 seconds
+        if (now - lastScanTime < 1500) return;
+
+        lastScanTime = now;
+
+        addResult(decodedText);
       }
     );
 
-  }).catch(err => {
+  }).catch(() => {
     alert("Camera not available");
   });
 }
 
 function addResult(text) {
+
   scannedResults.push(text);
 
   const row = document.createElement("div");
@@ -184,6 +191,9 @@ function addResult(text) {
   row.appendChild(textSpan);
   row.appendChild(copyBtn);
   resultsDiv.appendChild(row);
+
+  // Auto scroll to latest
+  resultsDiv.scrollTop = resultsDiv.scrollHeight;
 }
 
 function downloadExcel() {
@@ -192,8 +202,16 @@ function downloadExcel() {
     return;
   }
 
-  const worksheetData = scannedResults.map(item => [item]);
-  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+  const worksheetData = scannedResults.map((item, index) => [
+    index + 1,
+    item
+  ]);
+
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    ["Sl No", "Scanned Result"],
+    ...worksheetData
+  ]);
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Scanned Results");
 
