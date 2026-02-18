@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>QR & Barcode Scanner</title>
+<title>Advanced QR & Barcode Scanner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://unpkg.com/html5-qrcode"></script>
@@ -20,16 +20,19 @@ body {
 
 .container {
   background: #ffffff;
-  max-width: 500px;
+  max-width: 550px;
   width: 100%;
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 5px 20px rgba(0,0,0,0.1);
 }
 
-h2 {
+h2 { text-align: center; margin-top: 0; }
+
+.total {
   text-align: center;
-  margin-top: 0;
+  font-weight: bold;
+  margin-bottom: 10px;
 }
 
 button {
@@ -46,16 +49,14 @@ button {
 .qr-btn { background: #2563eb; }
 .barcode-btn { background: #7c3aed; }
 .download-btn { background: #16a34a; }
+.clear-btn { background: #dc2626; }
 
 button:hover { opacity: 0.9; }
 
-#reader {
-  width: 100%;
-  margin-bottom: 15px;
-}
+#reader { width: 100%; margin-bottom: 15px; }
 
 .results {
-  max-height: 250px;
+  max-height: 300px;
   overflow-y: auto;
   margin-bottom: 10px;
 }
@@ -68,88 +69,84 @@ button:hover { opacity: 0.9; }
   padding: 8px;
   margin-bottom: 6px;
   border-radius: 6px;
-  font-size: 14px;
-  word-break: break-all;
-}
-
-.result-row.duplicate {
-  background: #fecaca;   /* Light red */
-  color: #991b1b;        /* Dark red text */
-}
-
-.actions {
-  display: flex;
+  font-size: 13px;
   gap: 5px;
 }
 
-.copy-btn, .delete-btn {
+.code-info {
+  flex: 1;
+}
+
+.count {
+  font-weight: bold;
+  color: #2563eb;
+}
+
+.delete-btn {
+  background: #dc2626;
   border: none;
   color: white;
-  padding: 5px 8px;
+  padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
 }
-
-.copy-btn { background: #1d4ed8; }
-.delete-btn { background: #dc2626; }
-
-.copy-btn:hover { opacity: 0.9; }
-.delete-btn:hover { opacity: 0.9; }
-
 </style>
 </head>
 
 <body>
 <div class="container">
-  <h2>QR & Barcode Scanner</h2>
+  <h2>Advanced Scanner</h2>
 
-  <button class="qr-btn" onclick="startQR()">Scan QR Code</button>
-  <button class="barcode-btn" onclick="startBarcode()">Scan Barcode</button>
+  <div class="total">
+    Total Scans: <span id="totalCount">0</span>
+  </div>
+
+  <button class="qr-btn" onclick="toggleQR()">Start / Stop QR Scanner</button>
+  <button class="barcode-btn" onclick="toggleBarcode()">Start / Stop Barcode Scanner</button>
 
   <div id="reader"></div>
 
   <div class="results" id="results"></div>
 
-  <button class="download-btn" onclick="downloadExcel()">
-    Download Results as Excel
-  </button>
+  <button class="download-btn" onclick="downloadExcel()">Download Excel</button>
+  <button class="clear-btn" onclick="clearAll()">Clear All</button>
 </div>
 
 <script>
-let html5QrCode;
-let scannedResults = [];
+let html5QrCode = null;
+let scannerRunning = false;
 let currentFormats = [];
+let scanData = {};
 let lastScanTime = 0;
 
 const resultsDiv = document.getElementById("results");
+const totalCountSpan = document.getElementById("totalCount");
 
-function stopScanner() {
-  if (html5QrCode) {
-    html5QrCode.stop().catch(() => {});
-    html5QrCode.clear();
+function playBeep() {
+  const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+  audio.play();
+}
+
+function toggleQR() {
+  currentFormats = ["qr_code"];
+  toggleScanner();
+}
+
+function toggleBarcode() {
+  currentFormats = ["code_128","ean_13","ean_8","upc_a","upc_e"];
+  toggleScanner();
+}
+
+function toggleScanner() {
+  if (scannerRunning) {
+    stopScanner();
+  } else {
+    startScanner();
   }
 }
 
-function startQR() {
-  currentFormats = ["qr_code"];
-  startScanner();
-}
-
-function startBarcode() {
-  currentFormats = [
-    "code_128",
-    "ean_13",
-    "ean_8",
-    "upc_a",
-    "upc_e"
-  ];
-  startScanner();
-}
-
 function startScanner() {
-  stopScanner();
-
   html5QrCode = new Html5Qrcode("reader");
 
   Html5Qrcode.getCameras().then(cameras => {
@@ -160,93 +157,121 @@ function startScanner() {
 
     const cameraId = backCamera ? backCamera.id : cameras[0].id;
 
+    // 🔥 Dynamic scan frame
+    let scanBox;
+    if (currentFormats.includes("qr_code")) {
+      scanBox = { width: 250, height: 250 }; // Square
+    } else {
+      scanBox = { width: 350, height: 150 }; // Rectangle for barcode
+    }
+
     html5QrCode.start(
       cameraId,
       {
         fps: 10,
-        qrbox: 250,
+        qrbox: scanBox,
         formatsToSupport: currentFormats
       },
       decodedText => {
 
         const now = Date.now();
-        if (now - lastScanTime < 1500) return;
+        if (now - lastScanTime < 1000) return;
         lastScanTime = now;
 
-        addResult(decodedText);
+        playBeep();
+        processScan(decodedText);
       }
     );
 
-  }).catch(() => {
-    alert("Camera not available");
-  });
+    scannerRunning = true;
+
+  }).catch(() => alert("Camera not available"));
 }
 
-function addResult(text) {
-
-  const isDuplicate = scannedResults.includes(text);
-  scannedResults.push(text);
-
-  const row = document.createElement("div");
-  row.className = "result-row";
-
-  if (isDuplicate) {
-    row.classList.add("duplicate");
+function stopScanner() {
+  if (html5QrCode) {
+    html5QrCode.stop().then(() => {
+      html5QrCode.clear();
+      html5QrCode = null;
+      scannerRunning = false;
+    });
   }
+}
 
-  const textSpan = document.createElement("span");
-  textSpan.textContent = text;
+function processScan(text) {
+  if (!scanData[text]) {
+    scanData[text] = {
+      count: 1,
+      timestamp: new Date().toLocaleString()
+    };
+  } else {
+    scanData[text].count++;
+  }
+  renderResults();
+}
 
-  const actions = document.createElement("div");
-  actions.className = "actions";
+function renderResults() {
+  resultsDiv.innerHTML = "";
+  let total = 0;
 
-  const copyBtn = document.createElement("button");
-  copyBtn.textContent = "Copy";
-  copyBtn.className = "copy-btn";
-  copyBtn.onclick = () => {
-    navigator.clipboard.writeText(text);
-    copyBtn.textContent = "Copied!";
-    setTimeout(() => copyBtn.textContent = "Copy", 1000);
-  };
+  Object.keys(scanData).forEach(code => {
 
-  const deleteBtn = document.createElement("button");
-  deleteBtn.textContent = "Delete";
-  deleteBtn.className = "delete-btn";
-  deleteBtn.onclick = () => {
-    resultsDiv.removeChild(row);
-    scannedResults = scannedResults.filter(item => item !== text);
-  };
+    total += scanData[code].count;
 
-  actions.appendChild(copyBtn);
-  actions.appendChild(deleteBtn);
+    const row = document.createElement("div");
+    row.className = "result-row";
 
-  row.appendChild(textSpan);
-  row.appendChild(actions);
-  resultsDiv.appendChild(row);
+    const info = document.createElement("div");
+    info.className = "code-info";
+    info.innerHTML = `
+      <div><strong>${code}</strong></div>
+      <div>First Scan: ${scanData[code].timestamp}</div>
+      <div class="count">Count: ${scanData[code].count}</div>
+    `;
 
-  resultsDiv.scrollTop = resultsDiv.scrollHeight;
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Delete";
+    deleteBtn.className = "delete-btn";
+    deleteBtn.onclick = () => {
+      delete scanData[code];
+      renderResults();
+    };
+
+    row.appendChild(info);
+    row.appendChild(deleteBtn);
+    resultsDiv.appendChild(row);
+  });
+
+  totalCountSpan.textContent = total;
+}
+
+function clearAll() {
+  scanData = {};
+  renderResults();
 }
 
 function downloadExcel() {
-  if (scannedResults.length === 0) {
+  const data = Object.keys(scanData).map((code, index) => [
+    index + 1,
+    code,
+    scanData[code].count,
+    scanData[code].timestamp
+  ]);
+
+  if (data.length === 0) {
     alert("No data to export");
     return;
   }
 
-  const worksheetData = scannedResults.map((item, index) => [
-    index + 1,
-    item
-  ]);
-
   const worksheet = XLSX.utils.aoa_to_sheet([
-    ["Sl No", "Scanned Result"],
-    ...worksheetData
+    ["Sl No", "Code", "Count", "First Scan Time"],
+    ...data
   ]);
 
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Scanned Results");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Scan Data");
 
-  XLSX.writeFile(workbook, "scanned_results.xlsx");
+  XLSX.writeFile(workbook, "scan_results.xlsx");
 }
 </script>
 
