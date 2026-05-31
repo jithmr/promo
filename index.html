@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Broadcast Promo Renamer</title>
 
 <style>
@@ -61,6 +62,14 @@ button:hover{
     background:#0056b3;
 }
 
+.small-btn{
+    background:#dc3545;
+}
+
+.small-btn:hover{
+    background:#b52b3a;
+}
+
 .dropzone{
     border:3px dashed #888;
     border-radius:10px;
@@ -102,14 +111,12 @@ button:hover{
     height:250px;
     overflow:auto;
     font-family:monospace;
+    border-radius:8px;
 }
 
-.small-btn{
-    background:#dc3545;
-}
-
-.small-btn:hover{
-    background:#b52b3a;
+.info{
+    margin-top:10px;
+    font-weight:bold;
 }
 
 </style>
@@ -122,8 +129,14 @@ button:hover{
 <h1>Broadcast Promo Renamer</h1>
 
 <button onclick="addRow()">Add Row</button>
-<button onclick="selectDestinationFolder()">Select Destination Folder</button>
-<button onclick="processFiles()">Rename & Save</button>
+
+<button onclick="selectDestinationFolder()">
+    Select Destination Folder
+</button>
+
+<button onclick="processFiles()">
+    Rename & Save
+</button>
 
 <table id="dataTable">
 
@@ -140,24 +153,62 @@ button:hover{
 <tbody>
 
 <tr>
-<td><input type="text" class="serial"></td>
-<td><input type="text" class="episode"></td>
-<td><input type="date" class="date"></td>
-<td><input type="text" class="duration" placeholder="20SEC"></td>
 <td>
-<button class="small-btn" onclick="removeRow(this)">X</button>
+<input type="text" class="serial">
 </td>
+
+<td>
+<input type="text" class="episode">
+</td>
+
+<td>
+<input type="date" class="date">
+</td>
+
+<td>
+<input type="text" class="duration" placeholder="20SEC">
+</td>
+
+<td>
+<button class="small-btn" onclick="removeRow(this)">
+X
+</button>
+</td>
+
 </tr>
 
 </tbody>
+
 </table>
 
 <div class="dropzone" id="dropzone">
-    Drag & Drop Audio/Video Files Here
+
+    <h3>Drag & Drop Audio/Video Files Here</h3>
+
+    <p>OR</p>
+
+    <button onclick="browseFolder()">
+        Browse Folder
+    </button>
+
+    <input
+        type="file"
+        id="folderInput"
+        webkitdirectory
+        multiple
+        hidden
+    >
+
+</div>
+
+<div class="info" id="fileCount">
+    No files selected
 </div>
 
 <div class="progress-container">
-    <div class="progress-bar" id="progressBar">0%</div>
+    <div class="progress-bar" id="progressBar">
+        0%
+    </div>
 </div>
 
 <div id="log"></div>
@@ -167,43 +218,101 @@ button:hover{
 <script>
 
 let droppedFiles = [];
-let destinationDirHandle;
+
+let destinationDirHandle = null;
 
 const dropzone = document.getElementById("dropzone");
 
+const folderInput = document.getElementById("folderInput");
+
+
+// =============================
+// DRAG & DROP SUPPORT
+// =============================
+
 dropzone.addEventListener("dragover", (e)=>{
+
     e.preventDefault();
+
     dropzone.classList.add("dragover");
 });
 
 dropzone.addEventListener("dragleave", ()=>{
+
     dropzone.classList.remove("dragover");
 });
 
 dropzone.addEventListener("drop", (e)=>{
+
     e.preventDefault();
+
     dropzone.classList.remove("dragover");
 
     const files = [...e.dataTransfer.files];
 
     droppedFiles.push(...files);
 
-    log(`${files.length} files added.`);
+    updateFileCount();
+
+    log(`${files.length} files added by drag & drop.`);
 });
+
+
+// =============================
+// BROWSE FOLDER SUPPORT
+// =============================
+
+function browseFolder(){
+
+    folderInput.click();
+}
+
+folderInput.addEventListener("change", (event)=>{
+
+    const files = [...event.target.files];
+
+    droppedFiles.push(...files);
+
+    updateFileCount();
+
+    log(`${files.length} files loaded from folder.`);
+});
+
+
+// =============================
+// ADD / REMOVE ROWS
+// =============================
 
 function addRow(){
 
-    const tbody = document.querySelector("#dataTable tbody");
+    const tbody =
+        document.querySelector("#dataTable tbody");
 
-    const row = document.createElement("tr");
+    const row =
+        document.createElement("tr");
 
     row.innerHTML = `
-        <td><input type="text" class="serial"></td>
-        <td><input type="text" class="episode"></td>
-        <td><input type="date" class="date"></td>
-        <td><input type="text" class="duration" placeholder="20SEC"></td>
+
         <td>
-            <button class="small-btn" onclick="removeRow(this)">X</button>
+            <input type="text" class="serial">
+        </td>
+
+        <td>
+            <input type="text" class="episode">
+        </td>
+
+        <td>
+            <input type="date" class="date">
+        </td>
+
+        <td>
+            <input type="text" class="duration" placeholder="20SEC">
+        </td>
+
+        <td>
+            <button class="small-btn" onclick="removeRow(this)">
+                X
+            </button>
         </td>
     `;
 
@@ -211,97 +320,189 @@ function addRow(){
 }
 
 function removeRow(btn){
+
     btn.parentElement.parentElement.remove();
 }
+
+
+// =============================
+// DESTINATION FOLDER
+// =============================
 
 async function selectDestinationFolder(){
 
     try{
-        destinationDirHandle = await window.showDirectoryPicker();
+
+        destinationDirHandle =
+            await window.showDirectoryPicker();
+
         log("Destination folder selected.");
     }
+
     catch(err){
+
         log("Destination folder selection cancelled.");
     }
 }
 
+
+// =============================
+// LOG SYSTEM
+// =============================
+
 function log(message){
 
-    const logBox = document.getElementById("log");
+    const logBox =
+        document.getElementById("log");
 
     logBox.innerHTML += message + "<br>";
 
-    logBox.scrollTop = logBox.scrollHeight;
+    logBox.scrollTop =
+        logBox.scrollHeight;
 }
+
+
+// =============================
+// FILE COUNT
+// =============================
+
+function updateFileCount(){
+
+    document.getElementById("fileCount").innerText =
+        `${droppedFiles.length} files selected`;
+}
+
+
+// =============================
+// PROGRESS BAR
+// =============================
 
 function updateProgress(current, total){
 
-    const percent = Math.round((current / total) * 100);
+    const percent =
+        Math.round((current / total) * 100);
 
-    const progressBar = document.getElementById("progressBar");
+    const progressBar =
+        document.getElementById("progressBar");
 
-    progressBar.style.width = percent + "%";
+    progressBar.style.width =
+        percent + "%";
 
-    progressBar.innerText = percent + "%";
+    progressBar.innerText =
+        percent + "%";
 }
+
+
+// =============================
+// SAVE FILE FUNCTION
+// =============================
 
 async function saveFile(folderHandle, filename, file){
 
     const fileHandle =
-        await folderHandle.getFileHandle(filename, {create:true});
+        await folderHandle.getFileHandle(
+            filename,
+            {create:true}
+        );
 
     const writable =
         await fileHandle.createWritable();
 
-    await writable.write(await file.arrayBuffer());
+    await writable.write(
+        await file.arrayBuffer()
+    );
 
     await writable.close();
 }
 
+
+// =============================
+// MAIN PROCESS FUNCTION
+// =============================
+
 async function processFiles(){
 
     if(!destinationDirHandle){
+
         alert("Please select destination folder.");
+
         return;
     }
 
     if(droppedFiles.length === 0){
-        alert("Please drag files first.");
+
+        alert("Please add files first.");
+
         return;
     }
 
-    const rows = document.querySelectorAll("#dataTable tbody tr");
+    const rows =
+        document.querySelectorAll("#dataTable tbody tr");
 
     if(rows.length === 0){
+
         alert("Please add at least one row.");
+
         return;
     }
 
     const audioFolder =
-        await destinationDirHandle.getDirectoryHandle("Audio", {create:true});
+        await destinationDirHandle.getDirectoryHandle(
+            "Audio",
+            {create:true}
+        );
 
     const videoFolder =
-        await destinationDirHandle.getDirectoryHandle("Video", {create:true});
+        await destinationDirHandle.getDirectoryHandle(
+            "Video",
+            {create:true}
+        );
 
-    const videoExtensions = ["mp4","mov","mxf","avi","mkv"];
-    const audioExtensions = ["mp3","wav","aac","flac"];
+    const videoExtensions = [
+        "mp4",
+        "mov",
+        "mxf",
+        "avi",
+        "mkv"
+    ];
 
-    let totalOperations = droppedFiles.length * rows.length;
+    const audioExtensions = [
+        "mp3",
+        "wav",
+        "aac",
+        "flac"
+    ];
+
+    let totalOperations =
+        droppedFiles.length * rows.length;
+
     let completed = 0;
 
     for(let r = 0; r < rows.length; r++){
 
         const serial =
-            rows[r].querySelector(".serial").value.trim();
+            rows[r]
+            .querySelector(".serial")
+            .value
+            .trim();
 
         const episode =
-            rows[r].querySelector(".episode").value.trim();
+            rows[r]
+            .querySelector(".episode")
+            .value
+            .trim();
 
         const date =
-            rows[r].querySelector(".date").value.trim();
+            rows[r]
+            .querySelector(".date")
+            .value
+            .trim();
 
         const duration =
-            rows[r].querySelector(".duration").value.trim();
+            rows[r]
+            .querySelector(".duration")
+            .value
+            .trim();
 
         const baseName =
             `${serial}_EP_${episode}_PROMO_${date}_${duration}`;
@@ -309,20 +510,33 @@ async function processFiles(){
         for(const file of droppedFiles){
 
             const extension =
-                file.name.split('.').pop().toLowerCase();
+                file.name
+                .split('.')
+                .pop()
+                .toLowerCase();
 
-            // VIDEO AUTO DETECTION
+            // =============================
+            // VIDEO FILES
+            // =============================
+
             if(videoExtensions.includes(extension)){
 
                 const newVideoName =
                     `${baseName}.${extension}`;
 
-                await saveFile(videoFolder, newVideoName, file);
+                await saveFile(
+                    videoFolder,
+                    newVideoName,
+                    file
+                );
 
                 log(`VIDEO SAVED: ${newVideoName}`);
             }
 
-            // AUDIO AUTO DETECTION
+            // =============================
+            // AUDIO FILES
+            // =============================
+
             else if(audioExtensions.includes(extension)){
 
                 const todayName =
@@ -331,22 +545,39 @@ async function processFiles(){
                 const tomorrowName =
                     `${baseName}_TOMORROW.${extension}`;
 
-                await saveFile(audioFolder, todayName, file);
+                await saveFile(
+                    audioFolder,
+                    todayName,
+                    file
+                );
 
-                await saveFile(audioFolder, tomorrowName, file);
+                await saveFile(
+                    audioFolder,
+                    tomorrowName,
+                    file
+                );
 
                 log(`AUDIO SAVED:
                 ${todayName}
                 ${tomorrowName}`);
             }
 
+            // =============================
+            // UNSUPPORTED FILES
+            // =============================
+
             else{
-                log(`Unsupported file skipped: ${file.name}`);
+
+                log(`Unsupported file skipped:
+                ${file.name}`);
             }
 
             completed++;
 
-            updateProgress(completed, totalOperations);
+            updateProgress(
+                completed,
+                totalOperations
+            );
         }
     }
 
