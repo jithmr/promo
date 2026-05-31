@@ -2,187 +2,355 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Ultimate Image Tool PRO</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+<title>Broadcast Promo Renamer</title>
 
 <style>
-:root { --bg:#fff; --text:#000; --card:#f2f2f2; }
-.dark { --bg:#121212; --text:#fff; --card:#1e1e1e; }
 
-body {
-  font-family: Arial;
-  background:var(--bg);
-  color:var(--text);
-  text-align:center;
+body{
+    font-family: Arial, sans-serif;
+    background:#f0f2f5;
+    margin:0;
+    padding:20px;
 }
 
-.container { max-width:900px; margin:auto; }
-
-.card {
-  background:var(--card);
-  padding:15px;
-  border-radius:10px;
-  margin:10px 0;
+.container{
+    max-width:1200px;
+    margin:auto;
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 0 15px rgba(0,0,0,0.1);
 }
 
-canvas {
-  max-width:100%;
-  border:1px solid #aaa;
-  cursor:crosshair;
+h1{
+    text-align:center;
+    margin-bottom:20px;
 }
 
-button, input, select {
-  margin:5px;
-  padding:8px;
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
 }
 
-#exifData {
-  text-align:left;
-  font-size:12px;
-  max-height:200px;
-  overflow:auto;
+th, td{
+    border:1px solid #ccc;
+    padding:10px;
+    text-align:center;
 }
+
+input{
+    width:100%;
+    padding:8px;
+    box-sizing:border-box;
+}
+
+button{
+    padding:10px 20px;
+    margin:5px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    background:#007bff;
+    color:white;
+    font-size:14px;
+}
+
+button:hover{
+    background:#0056b3;
+}
+
+.dropzone{
+    border:3px dashed #888;
+    border-radius:10px;
+    padding:30px;
+    text-align:center;
+    margin-top:20px;
+    background:#fafafa;
+    transition:0.3s;
+}
+
+.dropzone.dragover{
+    background:#dbeeff;
+    border-color:#007bff;
+}
+
+.progress-container{
+    width:100%;
+    background:#ddd;
+    border-radius:10px;
+    overflow:hidden;
+    margin-top:20px;
+}
+
+.progress-bar{
+    width:0%;
+    height:25px;
+    background:#28a745;
+    text-align:center;
+    color:white;
+    line-height:25px;
+    transition:0.3s;
+}
+
+#log{
+    margin-top:20px;
+    background:black;
+    color:#00ff00;
+    padding:10px;
+    height:250px;
+    overflow:auto;
+    font-family:monospace;
+}
+
+.small-btn{
+    background:#dc3545;
+}
+
+.small-btn:hover{
+    background:#b52b3a;
+}
+
 </style>
 </head>
 
 <body>
 
 <div class="container">
-<h2>🔥 Ultimate Image Tool PRO</h2>
 
-<button onclick="toggleDark()">🌙 Dark Mode</button>
+<h1>Broadcast Promo Renamer</h1>
 
-<div class="card">
-<input type="file" id="upload" accept="image/*"><br>
+<button onclick="addRow()">Add Row</button>
+<button onclick="selectDestinationFolder()">Select Destination Folder</button>
+<button onclick="processFiles()">Rename & Save</button>
 
-Aspect Ratio:
-<select id="aspect">
-<option value="free">Free</option>
-<option value="1">1:1</option>
-<option value="1.777">16:9</option>
-</select><br>
+<table id="dataTable">
 
-Brightness <input type="range" id="brightness" min="0" max="200" value="100"><br>
-Contrast <input type="range" id="contrast" min="0" max="200" value="100"><br>
-Saturation <input type="range" id="saturation" min="0" max="200" value="100"><br>
+<thead>
+<tr>
+<th>Serial Name</th>
+<th>Episode Number</th>
+<th>Telecast Date</th>
+<th>Duration</th>
+<th>Remove</th>
+</tr>
+</thead>
 
-<button onclick="applyFilters()">Apply Filters</button>
-<button onclick="process()">Crop & Export</button>
+<tbody>
+
+<tr>
+<td><input type="text" class="serial"></td>
+<td><input type="text" class="episode"></td>
+<td><input type="date" class="date"></td>
+<td><input type="text" class="duration" placeholder="20SEC"></td>
+<td>
+<button class="small-btn" onclick="removeRow(this)">X</button>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+<div class="dropzone" id="dropzone">
+    Drag & Drop Audio/Video Files Here
 </div>
 
-<canvas id="canvas"></canvas>
-
-<div class="card">
-<h3>📷 EXIF Data</h3>
-<div id="exifData"></div>
+<div class="progress-container">
+    <div class="progress-bar" id="progressBar">0%</div>
 </div>
+
+<div id="log"></div>
 
 </div>
 
 <script>
-let canvas = document.getElementById("canvas");
-let ctx = canvas.getContext("2d");
 
-let img = new Image();
+let droppedFiles = [];
+let destinationDirHandle;
 
-// Crop box
-let crop = {x:50,y:50,w:200,h:200};
-let dragging = false;
-let resizing = false;
+const dropzone = document.getElementById("dropzone");
 
-// Upload
-document.getElementById("upload").addEventListener("change", e=>{
-  let file = e.target.files[0];
-
-  let reader = new FileReader();
-  reader.onload = ev=>{
-    img.onload = ()=>{
-      canvas.width = img.width;
-      canvas.height = img.height;
-      draw();
-    };
-    img.src = ev.target.result;
-
-    // EXIF
-    EXIF.getData(file, function(){
-      let allMeta = EXIF.getAllTags(this);
-      let html = "";
-      for(let key in allMeta){
-        html += `<b>${key}</b>: ${allMeta[key]}<br>`;
-      }
-      document.getElementById("exifData").innerHTML = html || "No EXIF data";
-    });
-  };
-  reader.readAsDataURL(file);
+dropzone.addEventListener("dragover", (e)=>{
+    e.preventDefault();
+    dropzone.classList.add("dragover");
 });
 
-// Draw
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+dropzone.addEventListener("dragleave", ()=>{
+    dropzone.classList.remove("dragover");
+});
 
-  ctx.filter = `brightness(${brightness.value}%) contrast(${contrast.value}%) saturate(${saturation.value}%)`;
-  ctx.drawImage(img,0,0);
+dropzone.addEventListener("drop", (e)=>{
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
 
-  // Crop box
-  ctx.strokeStyle="red";
-  ctx.lineWidth=2;
-  ctx.strokeRect(crop.x,crop.y,crop.w,crop.h);
+    const files = [...e.dataTransfer.files];
+
+    droppedFiles.push(...files);
+
+    log(`${files.length} files added.`);
+});
+
+function addRow(){
+
+    const tbody = document.querySelector("#dataTable tbody");
+
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+        <td><input type="text" class="serial"></td>
+        <td><input type="text" class="episode"></td>
+        <td><input type="date" class="date"></td>
+        <td><input type="text" class="duration" placeholder="20SEC"></td>
+        <td>
+            <button class="small-btn" onclick="removeRow(this)">X</button>
+        </td>
+    `;
+
+    tbody.appendChild(row);
 }
 
-// Filters
-function applyFilters(){
-  draw();
+function removeRow(btn){
+    btn.parentElement.parentElement.remove();
 }
 
-// Crop interaction
-canvas.onmousedown = e=>{
-  let x=e.offsetX,y=e.offsetY;
+async function selectDestinationFolder(){
 
-  if(x>crop.x && x<crop.x+crop.w && y>crop.y && y<crop.y+crop.h){
-    dragging=true;
-  }
-};
-
-canvas.onmousemove = e=>{
-  if(dragging){
-    crop.x = e.offsetX - crop.w/2;
-    crop.y = e.offsetY - crop.h/2;
-    draw();
-  }
-};
-
-canvas.onmouseup = ()=> dragging=false;
-
-// Process
-function process(){
-  let temp = document.createElement("canvas");
-  temp.width = crop.w;
-  temp.height = crop.h;
-
-  let tctx = temp.getContext("2d");
-
-  tctx.filter = ctx.filter;
-
-  tctx.drawImage(
-    canvas,
-    crop.x,crop.y,crop.w,crop.h,
-    0,0,crop.w,crop.h
-  );
-
-  let data = temp.toDataURL("image/jpeg",0.9);
-
-  let a = document.createElement("a");
-  a.href = data;
-  a.download = "edited.jpg";
-  a.click();
+    try{
+        destinationDirHandle = await window.showDirectoryPicker();
+        log("Destination folder selected.");
+    }
+    catch(err){
+        log("Destination folder selection cancelled.");
+    }
 }
 
-// Dark
-function toggleDark(){
-  document.body.classList.toggle("dark");
+function log(message){
+
+    const logBox = document.getElementById("log");
+
+    logBox.innerHTML += message + "<br>";
+
+    logBox.scrollTop = logBox.scrollHeight;
+}
+
+function updateProgress(current, total){
+
+    const percent = Math.round((current / total) * 100);
+
+    const progressBar = document.getElementById("progressBar");
+
+    progressBar.style.width = percent + "%";
+
+    progressBar.innerText = percent + "%";
+}
+
+async function saveFile(folderHandle, filename, file){
+
+    const fileHandle =
+        await folderHandle.getFileHandle(filename, {create:true});
+
+    const writable =
+        await fileHandle.createWritable();
+
+    await writable.write(await file.arrayBuffer());
+
+    await writable.close();
+}
+
+async function processFiles(){
+
+    if(!destinationDirHandle){
+        alert("Please select destination folder.");
+        return;
+    }
+
+    if(droppedFiles.length === 0){
+        alert("Please drag files first.");
+        return;
+    }
+
+    const rows = document.querySelectorAll("#dataTable tbody tr");
+
+    if(rows.length === 0){
+        alert("Please add at least one row.");
+        return;
+    }
+
+    const audioFolder =
+        await destinationDirHandle.getDirectoryHandle("Audio", {create:true});
+
+    const videoFolder =
+        await destinationDirHandle.getDirectoryHandle("Video", {create:true});
+
+    const videoExtensions = ["mp4","mov","mxf","avi","mkv"];
+    const audioExtensions = ["mp3","wav","aac","flac"];
+
+    let totalOperations = droppedFiles.length * rows.length;
+    let completed = 0;
+
+    for(let r = 0; r < rows.length; r++){
+
+        const serial =
+            rows[r].querySelector(".serial").value.trim();
+
+        const episode =
+            rows[r].querySelector(".episode").value.trim();
+
+        const date =
+            rows[r].querySelector(".date").value.trim();
+
+        const duration =
+            rows[r].querySelector(".duration").value.trim();
+
+        const baseName =
+            `${serial}_EP_${episode}_PROMO_${date}_${duration}`;
+
+        for(const file of droppedFiles){
+
+            const extension =
+                file.name.split('.').pop().toLowerCase();
+
+            // VIDEO AUTO DETECTION
+            if(videoExtensions.includes(extension)){
+
+                const newVideoName =
+                    `${baseName}.${extension}`;
+
+                await saveFile(videoFolder, newVideoName, file);
+
+                log(`VIDEO SAVED: ${newVideoName}`);
+            }
+
+            // AUDIO AUTO DETECTION
+            else if(audioExtensions.includes(extension)){
+
+                const todayName =
+                    `${baseName}_TODAY.${extension}`;
+
+                const tomorrowName =
+                    `${baseName}_TOMORROW.${extension}`;
+
+                await saveFile(audioFolder, todayName, file);
+
+                await saveFile(audioFolder, tomorrowName, file);
+
+                log(`AUDIO SAVED:
+                ${todayName}
+                ${tomorrowName}`);
+            }
+
+            else{
+                log(`Unsupported file skipped: ${file.name}`);
+            }
+
+            completed++;
+
+            updateProgress(completed, totalOperations);
+        }
+    }
+
+    log("PROCESS COMPLETED");
 }
 
 </script>
