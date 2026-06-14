@@ -61,7 +61,7 @@ tdDate.addEventListener('blur',()=>tdDate.value=normalizeDate(tdDate.value.trim(
  el.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
    e.preventDefault();
-   if(i<a.length-1) a[i+1].focus(); else processBtn.focus();
+   if(i<a.length-1) a[i+1].focus(); else document.getElementById("sourceBtn").focus();
   }
  });
 });
@@ -164,6 +164,9 @@ log(
 "✓ Process completed successfully"
 );
 }catch(err){ log("❌ Error\n\n"+err.message); }
+};
+window.onload = () => {
+    document.getElementById("pgmName").focus();
 };
 </script>
 </body>
