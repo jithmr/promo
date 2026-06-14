@@ -1,590 +1,147 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Broadcast Promo Renamer</title>
-
+<title>Promo Automation Tool - Part 4</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <style>
-
-body{
-    font-family: Arial, sans-serif;
-    background:#f0f2f5;
-    margin:0;
-    padding:20px;
-}
-
-.container{
-    max-width:1200px;
-    margin:auto;
-    background:white;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 0 15px rgba(0,0,0,0.1);
-}
-
-h1{
-    text-align:center;
-    margin-bottom:20px;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:15px;
-}
-
-th, td{
-    border:1px solid #ccc;
-    padding:10px;
-    text-align:center;
-}
-
-input{
-    width:100%;
-    padding:8px;
-    box-sizing:border-box;
-}
-
-button{
-    padding:10px 20px;
-    margin:5px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    background:#007bff;
-    color:white;
-    font-size:14px;
-}
-
-button:hover{
-    background:#0056b3;
-}
-
-.small-btn{
-    background:#dc3545;
-}
-
-.small-btn:hover{
-    background:#b52b3a;
-}
-
-.dropzone{
-    border:3px dashed #888;
-    border-radius:10px;
-    padding:30px;
-    text-align:center;
-    margin-top:20px;
-    background:#fafafa;
-    transition:0.3s;
-}
-
-.dropzone.dragover{
-    background:#dbeeff;
-    border-color:#007bff;
-}
-
-.progress-container{
-    width:100%;
-    background:#ddd;
-    border-radius:10px;
-    overflow:hidden;
-    margin-top:20px;
-}
-
-.progress-bar{
-    width:0%;
-    height:25px;
-    background:#28a745;
-    text-align:center;
-    color:white;
-    line-height:25px;
-    transition:0.3s;
-}
-
-#log{
-    margin-top:20px;
-    background:black;
-    color:#00ff00;
-    padding:10px;
-    height:250px;
-    overflow:auto;
-    font-family:monospace;
-    border-radius:8px;
-}
-
-.info{
-    margin-top:10px;
-    font-weight:bold;
-}
-
+body{font-family:Arial;background:#f4f4f4;padding:20px}
+.container{max-width:900px;margin:auto;background:white;padding:20px;border-radius:10px}
+input{width:100%;padding:8px;margin-top:4px}
+button{padding:10px;margin-top:10px}
+#status{white-space:pre-wrap;background:#f7f7f7;padding:15px;margin-top:15px}
 </style>
 </head>
-
 <body>
-
 <div class="container">
+<h2>Promo Automation Tool - Part 4</h2>
 
-<h1>Broadcast Promo Renamer</h1>
+<label>Pgm Name</label><input id="pgmName">
+<label>Episode No</label><input id="epNo">
+<label>TD Date (DD-MM-YY)</label><input id="tdDate">
+<label>Duration</label><input id="duration">
 
-<button onclick="addRow()">Add Row</button>
+<p><button id="sourceBtn">Select Source Folder</button> <span id="sourceName"></span></p>
+<p><button id="destBtn">Select Destination Folder</button> <span id="destName"></span></p>
+<p><button id="excelBtn">Select Excel Workbook</button> <span id="excelName"></span></p>
 
-<button onclick="selectDestinationFolder()">
-    Select Destination Folder
-</button>
-
-<button onclick="processFiles()">
-    Rename & Save
-</button>
-
-<table id="dataTable">
-
-<thead>
-<tr>
-<th>Serial Name</th>
-<th>Episode Number</th>
-<th>Telecast Date</th>
-<th>Duration</th>
-<th>Remove</th>
-</tr>
-</thead>
-
-<tbody>
-
-<tr>
-<td>
-<input type="text" class="serial">
-</td>
-
-<td>
-<input type="text" class="episode">
-</td>
-
-<td>
-<input type="date" class="date">
-</td>
-
-<td>
-<input type="text" class="duration" placeholder="20SEC">
-</td>
-
-<td>
-<button class="small-btn" onclick="removeRow(this)">
-X
-</button>
-</td>
-
-</tr>
-
-</tbody>
-
-</table>
-
-<div class="dropzone" id="dropzone">
-
-    <h3>Drag & Drop Audio/Video Files Here</h3>
-
-    <p>OR</p>
-
-    <button onclick="browseFolder()">
-        Browse Folder
-    </button>
-
-    <input
-        type="file"
-        id="folderInput"
-        webkitdirectory
-        multiple
-        hidden
-    >
-
-</div>
-
-<div class="info" id="fileCount">
-    No files selected
-</div>
-
-<div class="progress-container">
-    <div class="progress-bar" id="progressBar">
-        0%
-    </div>
-</div>
-
-<div id="log"></div>
-
+<button id="processBtn">PROCESS</button>
+<div id="status">Ready...</div>
 </div>
 
 <script>
+let sourceHandle=null,destHandle=null,excelHandle=null;
 
-let droppedFiles = [];
+function log(t){document.getElementById('status').textContent=t;}
 
-let destinationDirHandle = null;
+document.getElementById('sourceBtn').onclick=async()=>{
+ try{sourceHandle=await window.showDirectoryPicker();sourceName.textContent=sourceHandle.name;}catch(e){}
+};
+document.getElementById('destBtn').onclick=async()=>{
+ try{destHandle=await window.showDirectoryPicker();destName.textContent=destHandle.name;}catch(e){}
+};
+document.getElementById('excelBtn').onclick=async()=>{
+ try{
+   [excelHandle]=await window.showOpenFilePicker({
+     types:[{description:'Excel',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}],
+     multiple:false
+   });
+   excelName.textContent=excelHandle.name;
+ }catch(e){}
+};
 
-const dropzone = document.getElementById("dropzone");
-
-const folderInput = document.getElementById("folderInput");
-
-
-// =============================
-// DRAG & DROP SUPPORT
-// =============================
-
-dropzone.addEventListener("dragover", (e)=>{
-
-    e.preventDefault();
-
-    dropzone.classList.add("dragover");
-});
-
-dropzone.addEventListener("dragleave", ()=>{
-
-    dropzone.classList.remove("dragover");
-});
-
-dropzone.addEventListener("drop", (e)=>{
-
-    e.preventDefault();
-
-    dropzone.classList.remove("dragover");
-
-    const files = [...e.dataTransfer.files];
-
-    droppedFiles.push(...files);
-
-    updateFileCount();
-
-    log(`${files.length} files added by drag & drop.`);
-});
-
-
-// =============================
-// BROWSE FOLDER SUPPORT
-// =============================
-
-function browseFolder(){
-
-    folderInput.click();
+function isME(name){
+ return /\bME\b/i.test(name.replace(/\.[^/.]+$/,''));
+}
+function prevDate(td){
+ const [d,m,y]=td.split('-').map(Number);
+ const dt=new Date(2000+y,m-1,d);
+ dt.setDate(dt.getDate()-1);
+ return String(dt.getDate()).padStart(2,'0')+"-"+String(dt.getMonth()+1).padStart(2,'0')+"-"+String(dt.getFullYear()).slice(-2);
+}
+async function fileExists(folder,name){
+ try{await folder.getFileHandle(name);return true;}catch{return false;}
+}
+async function copyFile(srcHandle,destFolder,newName){
+ const src=await srcHandle.getFile();
+ const dh=await destFolder.getFileHandle(newName,{create:true});
+ const w=await dh.createWritable();
+ await w.write(await src.arrayBuffer());
+ await w.close();
 }
 
-folderInput.addEventListener("change", (event)=>{
+document.getElementById('processBtn').onclick=async()=>{
+try{
+const pgm=pgmName.value.trim(), ep=epNo.value.trim(), td=tdDate.value.trim(), dur=duration.value.trim();
+if(!pgm||!ep||!td||!dur) return log("❌ Fill all fields");
+if(!sourceHandle) return log("❌ Select Source Folder");
+if(!destHandle) return log("❌ Select Destination Folder");
+if(!excelHandle) return log("❌ Select Excel Workbook");
 
-    const files = [...event.target.files];
+let video=null,hdsd=null,me=null;
 
-    droppedFiles.push(...files);
-
-    updateFileCount();
-
-    log(`${files.length} files loaded from folder.`);
-});
-
-
-// =============================
-// ADD / REMOVE ROWS
-// =============================
-
-function addRow(){
-
-    const tbody =
-        document.querySelector("#dataTable tbody");
-
-    const row =
-        document.createElement("tr");
-
-    row.innerHTML = `
-
-        <td>
-            <input type="text" class="serial">
-        </td>
-
-        <td>
-            <input type="text" class="episode">
-        </td>
-
-        <td>
-            <input type="date" class="date">
-        </td>
-
-        <td>
-            <input type="text" class="duration" placeholder="20SEC">
-        </td>
-
-        <td>
-            <button class="small-btn" onclick="removeRow(this)">
-                X
-            </button>
-        </td>
-    `;
-
-    tbody.appendChild(row);
+for await(const entry of sourceHandle.values()){
+ if(entry.kind!=="file") continue;
+ const n=entry.name.toLowerCase();
+ if(n.endsWith(".mxf")||n.endsWith(".mov")){
+   if(video) return log("❌ Multiple video files found");
+   video=entry;
+ }
+ if(n.endsWith(".wav")){
+   if(isME(entry.name)) me=entry; else hdsd=entry;
+ }
 }
 
-function removeRow(btn){
+if(!video) return log("❌ No video file found");
+if(!hdsd && !me) return log("❌ No WAV audio file found");
 
-    btn.parentElement.parentElement.remove();
+const audioFolder=await destHandle.getDirectoryHandle("Audio");
+const videoFolder=await destHandle.getDirectoryHandle("Video");
+
+const ext=video.name.substring(video.name.lastIndexOf("."));
+const jobs=[];
+
+jobs.push({folder:videoFolder,name:`${pgm}_EP_${ep}_TD_${td}_${dur} SEC${ext}`,source:video});
+
+if(hdsd){
+ jobs.push({folder:audioFolder,name:`${pgm}_EP_${ep}_TD_${td}_${dur} SEC_HD_SD TODAY.wav`,source:hdsd});
+ jobs.push({folder:audioFolder,name:`${pgm}_EP_${ep}_TD_${td}_${dur} SEC_HD_SD TOMORROW.wav`,source:hdsd});
+}
+if(me){
+ jobs.push({folder:audioFolder,name:`${pgm}_EP_${ep}_TD_${td}_${dur} SEC_ME TODAY.wav`,source:me});
+ jobs.push({folder:audioFolder,name:`${pgm}_EP_${ep}_TD_${td}_${dur} SEC_ME TOMORROW.wav`,source:me});
 }
 
-
-// =============================
-// DESTINATION FOLDER
-// =============================
-
-async function selectDestinationFolder(){
-
-    try{
-
-        destinationDirHandle =
-            await window.showDirectoryPicker();
-
-        log("Destination folder selected.");
-    }
-
-    catch(err){
-
-        log("Destination folder selection cancelled.");
-    }
+for(const j of jobs){
+ if(await fileExists(j.folder,j.name)) return log("❌ File already exists\n\n"+j.name);
 }
+for(const j of jobs){ await copyFile(j.source,j.folder,j.name); }
 
+// Excel update
+const excelFile=await excelHandle.getFile();
+const data=await excelFile.arrayBuffer();
+const wb=XLSX.read(data,{type:'array'});
+const ws=wb.Sheets[wb.SheetNames[0]];
 
-// =============================
-// LOG SYSTEM
-// =============================
+const prev=prevDate(td);
+ws["E2"]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${prev}`};
+ws["E3"]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${td}`};
+ws["E4"]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${prev}`};
+ws["E5"]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${td}`};
+ws["E6"]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${prev}`};
+ws["E7"]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${td}`};
 
-function log(message){
+const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+const writable=await excelHandle.createWritable();
+await writable.write(out);
+await writable.close();
 
-    const logBox =
-        document.getElementById("log");
+log("✓ Video created\n✓ Audio files created\n✓ Excel updated\n✓ Processing completed");
 
-    logBox.innerHTML += message + "<br>";
-
-    logBox.scrollTop =
-        logBox.scrollHeight;
+}catch(err){
+ log("❌ Error\n\n"+err.message);
 }
-
-
-// =============================
-// FILE COUNT
-// =============================
-
-function updateFileCount(){
-
-    document.getElementById("fileCount").innerText =
-        `${droppedFiles.length} files selected`;
-}
-
-
-// =============================
-// PROGRESS BAR
-// =============================
-
-function updateProgress(current, total){
-
-    const percent =
-        Math.round((current / total) * 100);
-
-    const progressBar =
-        document.getElementById("progressBar");
-
-    progressBar.style.width =
-        percent + "%";
-
-    progressBar.innerText =
-        percent + "%";
-}
-
-
-// =============================
-// SAVE FILE FUNCTION
-// =============================
-
-async function saveFile(folderHandle, filename, file){
-
-    const fileHandle =
-        await folderHandle.getFileHandle(
-            filename,
-            {create:true}
-        );
-
-    const writable =
-        await fileHandle.createWritable();
-
-    await writable.write(
-        await file.arrayBuffer()
-    );
-
-    await writable.close();
-}
-
-
-// =============================
-// MAIN PROCESS FUNCTION
-// =============================
-
-async function processFiles(){
-
-    if(!destinationDirHandle){
-
-        alert("Please select destination folder.");
-
-        return;
-    }
-
-    if(droppedFiles.length === 0){
-
-        alert("Please add files first.");
-
-        return;
-    }
-
-    const rows =
-        document.querySelectorAll("#dataTable tbody tr");
-
-    if(rows.length === 0){
-
-        alert("Please add at least one row.");
-
-        return;
-    }
-
-    const audioFolder =
-        await destinationDirHandle.getDirectoryHandle(
-            "Audio",
-            {create:true}
-        );
-
-    const videoFolder =
-        await destinationDirHandle.getDirectoryHandle(
-            "Video",
-            {create:true}
-        );
-
-    const videoExtensions = [
-        "mp4",
-        "mov",
-        "mxf",
-        "avi",
-        "mkv"
-    ];
-
-    const audioExtensions = [
-        "mp3",
-        "wav",
-        "aac",
-        "flac"
-    ];
-
-    let totalOperations =
-        droppedFiles.length * rows.length;
-
-    let completed = 0;
-
-    for(let r = 0; r < rows.length; r++){
-
-        const serial =
-            rows[r]
-            .querySelector(".serial")
-            .value
-            .trim();
-
-        const episode =
-            rows[r]
-            .querySelector(".episode")
-            .value
-            .trim();
-
-        const date =
-            rows[r]
-            .querySelector(".date")
-            .value
-            .trim();
-
-        const duration =
-            rows[r]
-            .querySelector(".duration")
-            .value
-            .trim();
-
-        const baseName =
-            `${serial}_EP_${episode}_PROMO_${date}_${duration}`;
-
-        for(const file of droppedFiles){
-
-            const extension =
-                file.name
-                .split('.')
-                .pop()
-                .toLowerCase();
-
-            // =============================
-            // VIDEO FILES
-            // =============================
-
-            if(videoExtensions.includes(extension)){
-
-                const newVideoName =
-                    `${baseName}.${extension}`;
-
-                await saveFile(
-                    videoFolder,
-                    newVideoName,
-                    file
-                );
-
-                log(`VIDEO SAVED: ${newVideoName}`);
-            }
-
-            // =============================
-            // AUDIO FILES
-            // =============================
-
-            else if(audioExtensions.includes(extension)){
-
-                const todayName =
-                    `${baseName}_TODAY.${extension}`;
-
-                const tomorrowName =
-                    `${baseName}_TOMORROW.${extension}`;
-
-                await saveFile(
-                    audioFolder,
-                    todayName,
-                    file
-                );
-
-                await saveFile(
-                    audioFolder,
-                    tomorrowName,
-                    file
-                );
-
-                log(`AUDIO SAVED:
-                ${todayName}
-                ${tomorrowName}`);
-            }
-
-            // =============================
-            // UNSUPPORTED FILES
-            // =============================
-
-            else{
-
-                log(`Unsupported file skipped:
-                ${file.name}`);
-            }
-
-            completed++;
-
-            updateProgress(
-                completed,
-                totalOperations
-            );
-        }
-    }
-
-    log("PROCESS COMPLETED");
-}
-
+};
 </script>
-
 </body>
 </html>
