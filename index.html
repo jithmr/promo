@@ -120,6 +120,9 @@ let video=null,hdsd=null,me=null;
 for await(const entry of sourceHandle.values()){
  if(entry.kind!=="file") continue;
  const n=entry.name.toLowerCase();
+    if(n.startsWith("._")) continue;
+if(n === ".ds_store") continue;
+
  if(n.endsWith(".mxf")||n.endsWith(".mov")){ if(video) return log("❌ Multiple video files found"); video=entry; }
  if(n.endsWith(".wav")){ if(isME(entry.name)) me=entry; else hdsd=entry; }
 }
