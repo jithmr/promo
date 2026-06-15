@@ -81,80 +81,17 @@ excelBtn.onclick=async()=>{
 };
 
 clearDestBtn.onclick=async()=>{
-
-if(!destHandle)
-return log("❌ Select Destination Folder");
-
-if(!confirm("Delete all files in Audio and Video folders?"))
-return;
-
-try{
-
-```
- let count = 0;
-
- const audioFolder =
-     await destHandle.getDirectoryHandle("Audio");
-
- const videoFolder =
-     await destHandle.getDirectoryHandle("Video");
-
- for await (const [name, handle] of audioFolder.entries()){
-
-     if(handle.kind === "file"){
-
-         try{
-             await audioFolder.removeEntry(name, { recursive: false });
-             count++;
-         }
-         catch(err){
-             return log(
-                 "❌ Failed deleting file\n\n" +
-                 name + "\n\n" +
-                 err.message
-             );
-         }
-     }
- }
-
- for await (const [name, handle] of videoFolder.entries()){
-
-     if(handle.kind === "file"){
-
-         try{
-             await videoFolder.removeEntry(name, { recursive: false });
-             count++;
-         }
-         catch(err){
-             return log(
-                 "❌ Failed deleting file\n\n" +
-                 name + "\n\n" +
-                 err.message
-             );
-         }
-     }
- }
-
- log(
-     "✓ Destination cleared\n\n" +
-     count +
-     " files deleted"
- );
-```
-
-}
-catch(err){
-
-```
- log(
-     "❌ CLEAR DEST Error\n\n" +
-     err.message
- );
-```
-
-}
+ if(!destHandle) return log("❌ Select Destination Folder");
+ if(!confirm("Delete all files in Audio and Video folders?")) return;
+ try{
+  let count=0;
+  const a=await destHandle.getDirectoryHandle("Audio");
+  const v=await destHandle.getDirectoryHandle("Video");
+  for await (const [n,h] of a.entries()){ if(h.kind==="file"){ await a.removeEntry(n); count++; } }
+  for await (const [n,h] of v.entries()){ if(h.kind==="file"){ await v.removeEntry(n); count++; } }
+  log("✓ Destination cleared\n\n"+count+" files deleted");
+ }catch(e){ log("❌ "+e.message); }
 };
-
 
 function isME(name){ return /\bME\b/i.test(name.replace(/\.[^/.]+$/,'')); }
 function prevDate(td){
