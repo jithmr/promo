@@ -122,23 +122,10 @@ for await(const entry of sourceHandle.values()){
  const n=entry.name.toLowerCase();
     if(n.startsWith("._")) continue;
 if(n === ".ds_store") continue;
-
  if(n.endsWith(".mxf")||n.endsWith(".mov")){ if(video) return log("❌ Multiple video files found"); video=entry; }
  if(n.endsWith(".wav")){ if(isME(entry.name)) me=entry; else hdsd=entry; }
 }
-if(n.endsWith(".mxf") || n.endsWith(".mov")){
-
-if(video){
-return log(
-"❌ Multiple video files found\n\n" +
-"First Video:\n" + video.name +
-"\n\nSecond Video:\n" + entry.name
-);
-}
-
-video = entry;
-}
-;
+if(!video) return log("❌ No video file found");
 if(!hdsd && !me) return log("❌ No WAV audio file found");
 
 let audioFolder,videoFolder;
@@ -162,8 +149,8 @@ const excelFile=await excelHandle.getFile();
 const wb=XLSX.read(await excelFile.arrayBuffer(),{type:'array'});
 const ws=wb.Sheets[wb.SheetNames[0]];
 const prev=prevDate(td);
-["E2","E4","E6"].forEach(c=>ws[c]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${prev}`});
-["E3","E5","E7"].forEach(c=>ws[c]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${td}`});
+["G2","G4","G6"].forEach(c=>ws[c]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${prev}`});
+["G3","G5","G7"].forEach(c=>ws[c]={t:"s",v:`${pgm}_EP ${ep}_${dur} SEC_TD_${td}`});
 const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
 const writable=await excelHandle.createWritable();
 await writable.write(out); await writable.close();
