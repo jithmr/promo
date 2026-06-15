@@ -104,7 +104,7 @@ try{
      if(handle.kind === "file"){
 
          try{
-             await audioFolder.removeEntry(name);
+             await audioFolder.removeEntry(name, { recursive: false });
              count++;
          }
          catch(err){
@@ -122,7 +122,7 @@ try{
      if(handle.kind === "file"){
 
          try{
-             await videoFolder.removeEntry(name);
+             await videoFolder.removeEntry(name, { recursive: false });
              count++;
          }
          catch(err){
