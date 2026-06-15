@@ -123,7 +123,12 @@ for await(const entry of sourceHandle.values()){
  if(n.endsWith(".mxf")||n.endsWith(".mov")){ if(video) return log("❌ Multiple video files found"); video=entry; }
  if(n.endsWith(".wav")){ if(isME(entry.name)) me=entry; else hdsd=entry; }
 }
-if(!video) return log("❌ No video file found");
+if(video)
+return log(
+"❌ Multiple video files found\n\n" +
+video.name + "\n" +
+entry.name
+);
 if(!hdsd && !me) return log("❌ No WAV audio file found");
 
 let audioFolder,videoFolder;
